@@ -10,8 +10,11 @@ Image licensing
 ---------------
 
 The default world map used is:
+
+```
 https://en.wikipedia.org/wiki/File:Mercator_projection_SW.jpg
 License: Strebe, CC BY-SA 3.0 <https://creativecommons.org/licenses/by-sa/3.0>, via Wikimedia Commons
+```
 
 Pin images are created by the author of the package, licensed under this package license (MIT).
 
