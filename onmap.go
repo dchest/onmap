@@ -140,7 +140,7 @@ func MapPinsProjection(proj Projection, worldMap image.Image, pinParts []image.I
 		cs[i] = proj.Convert(c, mapWidth, mapHeight)
 	}
 
-	// Sort coordinates by longitude so that
+	// Sort coordinates by latitude so that
 	// lower pins are drawn on top of upper pins.
 	sort.Slice(cs, func(i, j int) bool {
 		if cs[i].Y < cs[j].Y {
