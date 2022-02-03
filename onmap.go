@@ -5,12 +5,11 @@ import (
 	"bytes"
 	_ "embed"
 	"image"
+	"image/draw"
 	_ "image/jpeg"
 	_ "image/png"
 	"math"
 	"sort"
-
-	"github.com/fogleman/gg"
 )
 
 //go:embed pin.png
@@ -97,10 +96,6 @@ func (p mercatorProjection) Convert(c Coord, mapWidth, mapHeight int) image.Poin
 	return image.Point{int(math.Round(fx)), int(math.Round(fy))}
 }
 
-type subImager interface {
-	SubImage(r image.Rectangle) image.Image
-}
-
 // CropOptions defines options for cropping the map image.
 type CropOption struct {
 	// Bound is a minimum distance from the pin to the image boundary.
@@ -153,14 +148,18 @@ func MapPinsProjection(proj Projection, worldMap image.Image, pinParts []image.I
 	})
 
 	// Draw map.
-	dc := gg.NewContext(worldMap.Bounds().Max.X, worldMap.Bounds().Max.Y)
-	dc.DrawImage(worldMap, 0, 0)
+	m := image.NewRGBA(image.Rect(0, 0, worldMap.Bounds().Dx(), worldMap.Bounds().Dy()))
+	draw.Draw(m, m.Bounds(), worldMap, worldMap.Bounds().Min, draw.Over)
 
 	// Draw pin parts.
 	// Looping over pinParts first to better arrange shadows.
 	for _, pin := range pinParts {
+		halfw := pin.Bounds().Dx() / 2
+		h := pin.Bounds().Dy()
+		min := pin.Bounds().Min
 		for _, c := range cs {
-			dc.DrawImageAnchored(pin, c.X, c.Y, 0.5, 1)
+			r := image.Rect(c.X-halfw, c.Y-h, c.X+halfw, c.Y)
+			draw.Draw(m, r, pin, min, draw.Over)
 		}
 	}
 
@@ -183,7 +182,6 @@ func MapPinsProjection(proj Projection, worldMap image.Image, pinParts []image.I
 			maxY = c.Y
 		}
 	}
-	m := dc.Image()
 	if crop == nil {
 		return m
 	}
@@ -240,7 +238,7 @@ func MapPinsProjection(proj Projection, worldMap image.Image, pinParts []image.I
 			maxY = mapHeight
 		}
 	}
-	return m.(subImager).SubImage(image.Rect(minX, minY, maxX, maxY))
+	return m.SubImage(image.Rect(minX, minY, maxX, maxY))
 }
 
 // MapPins is like MapPinsProjection with Mercator projection.
