@@ -26,16 +26,18 @@ var (
 	mapImg    image.Image
 	pin       image.Image
 	pinShadow image.Image
-	pinParts  []image.Image
 
 	mapWidth  int
 	mapHeight int
 )
 
+// DefaultPinParts are default pin images.
+var DefaultPinParts []image.Image
+
 func init() {
 	pin = decodeImage(pinData)
 	pinShadow = decodeImage(pinShadowData)
-	pinParts = []image.Image{pinShadow, pin}
+	DefaultPinParts = []image.Image{pinShadow, pin}
 	mapImg = decodeImage(mapData)
 	mapWidth = mapImg.Bounds().Max.X
 	mapHeight = mapImg.Bounds().Max.Y
@@ -251,5 +253,5 @@ func MapPins(worldMap image.Image, pinParts []image.Image, coords []Coord, crop 
 
 // Pins is like MapPins but uses the embedded world map and pin images.
 func Pins(coords []Coord, crop *CropOption) image.Image {
-	return MapPins(mapImg, pinParts, coords, crop)
+	return MapPins(mapImg, DefaultPinParts, coords, crop)
 }
