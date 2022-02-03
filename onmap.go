@@ -153,7 +153,7 @@ func MapPinsProjection(proj Projection, worldMap image.Image, pinParts []image.I
 	})
 
 	// Draw map.
-	dc := gg.NewContext(mercatorImg.Bounds().Max.X, mercatorImg.Bounds().Max.Y)
+	dc := gg.NewContext(worldMap.Bounds().Max.X, worldMap.Bounds().Max.Y)
 	dc.DrawImage(worldMap, 0, 0)
 
 	// Draw pin parts.
