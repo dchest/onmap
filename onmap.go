@@ -163,7 +163,7 @@ func MapPins(worldMap image.Image, pinParts []image.Image, coords []Coord, crop 
 	mh := float64(mapHeight)
 
 	// Draw pin parts.
-	// Shouldn't draw each part
+	// Looping over pinParts first to better arrange shadows.
 	for _, pin := range pinParts {
 		for _, c := range cs {
 			x, y := c.XY(mw, mh)
