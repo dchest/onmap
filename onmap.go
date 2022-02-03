@@ -10,6 +10,7 @@ import (
 	_ "image/png"
 	"math"
 	"sort"
+	"sync"
 )
 
 //go:embed pin.png
@@ -19,28 +20,30 @@ var pinData []byte
 var pinShadowData []byte
 
 //go:embed mercator.jpg
-var mapData []byte
+var mercatorData []byte
 
 var (
-	mercatorImg image.Image
-	pin         image.Image
-	pinShadow   image.Image
+	mercatorImg     image.Image
+	defaultPinParts []image.Image
+
+	mercatorOnce sync.Once
+	pinOnce      sync.Once
 )
 
-// DefaultPinParts are default pin images.
-var DefaultPinParts []image.Image
+// DefaultMap returns the default map (Mercator projection).
+func DefaultMap() image.Image {
+	mercatorOnce.Do(func() {
+		mercatorImg = decodeImage(mercatorData)
+	})
+	return mercatorImg
+}
 
-func init() {
-	pin = decodeImage(pinData)
-	pinShadow = decodeImage(pinShadowData)
-	DefaultPinParts = []image.Image{pinShadow, pin}
-	mercatorImg = decodeImage(mapData)
-	StandardCrop = &CropOption{
-		Bound:         100,
-		MinWidth:      mercatorImg.Bounds().Max.X / 3,
-		MinHeight:     mercatorImg.Bounds().Max.Y / 3,
-		PreserveRatio: true,
-	}
+// DefaultPin returns default pin images.
+func DefaultPin() []image.Image {
+	pinOnce.Do(func() {
+		defaultPinParts = []image.Image{decodeImage(pinShadowData), decodeImage(pinData)}
+	})
+	return defaultPinParts
 }
 
 func decodeImage(data []byte) image.Image {
@@ -58,7 +61,12 @@ func decodeImage(data []byte) image.Image {
 // MinHeight: mapHeight/3
 // PreserveRatio: true
 //
-var StandardCrop *CropOption
+var StandardCrop *CropOption = &CropOption{
+	Bound:         100,
+	MinWidth:      640,
+	MinHeight:     543,
+	PreserveRatio: true,
+}
 
 // Coord describes decimal coordinates.
 type Coord struct {
@@ -249,5 +257,5 @@ func MapPins(worldMap image.Image, pinParts []image.Image, coords []Coord, crop 
 
 // Pins is like MapPins but uses the embedded world map and pin images.
 func Pins(coords []Coord, crop *CropOption) image.Image {
-	return MapPins(mercatorImg, DefaultPinParts, coords, crop)
+	return MapPins(DefaultMap(), DefaultPin(), coords, crop)
 }
