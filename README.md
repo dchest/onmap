@@ -27,6 +27,7 @@ package main
 
 import (
     "os"
+    "log"
     "image/png"
 
     "github.com/dchest/onmap"
