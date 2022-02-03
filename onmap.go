@@ -23,7 +23,7 @@ var pinShadowData []byte
 var mapData []byte
 
 var (
-	merkatorImg image.Image
+	mercatorImg image.Image
 	pin         image.Image
 	pinShadow   image.Image
 )
@@ -35,11 +35,11 @@ func init() {
 	pin = decodeImage(pinData)
 	pinShadow = decodeImage(pinShadowData)
 	DefaultPinParts = []image.Image{pinShadow, pin}
-	merkatorImg = decodeImage(mapData)
+	mercatorImg = decodeImage(mapData)
 	StandardCrop = &CropOption{
 		Bound:         100,
-		MinWidth:      merkatorImg.Bounds().Max.X / 3,
-		MinHeight:     merkatorImg.Bounds().Max.Y / 3,
+		MinWidth:      mercatorImg.Bounds().Max.X / 3,
+		MinHeight:     mercatorImg.Bounds().Max.Y / 3,
 		PreserveRatio: true,
 	}
 }
@@ -76,20 +76,20 @@ type Projection interface {
 	Convert(coord Coord, mapWidth, mapHeight int) image.Point
 }
 
-var Merkator = merkatorProjection(0)
+// Mercator provides the Mercator projection.
+var Mercator = mercatorProjection(0)
 
-// Merkator implements Projection interface for Merkator projection.
-type merkatorProjection int
+type mercatorProjection int
 
-func (p merkatorProjection) latRad(lat float64) float64 {
+func (p mercatorProjection) latRad(lat float64) float64 {
 	return lat * math.Pi / 180
 }
 
-func (p merkatorProjection) n(lat float64) float64 {
+func (p mercatorProjection) n(lat float64) float64 {
 	return math.Log(math.Tan((math.Pi / 4) + (p.latRad(lat) / 2)))
 }
 
-func (p merkatorProjection) Convert(c Coord, mapWidth, mapHeight int) image.Point {
+func (p mercatorProjection) Convert(c Coord, mapWidth, mapHeight int) image.Point {
 	mw := float64(mapWidth)
 	mh := float64(mapHeight)
 	fx := (c.Long + 180) * (mw / 360)
@@ -153,7 +153,7 @@ func MapPinsProjection(proj Projection, worldMap image.Image, pinParts []image.I
 	})
 
 	// Draw map.
-	dc := gg.NewContext(merkatorImg.Bounds().Max.X, merkatorImg.Bounds().Max.Y)
+	dc := gg.NewContext(mercatorImg.Bounds().Max.X, mercatorImg.Bounds().Max.Y)
 	dc.DrawImage(worldMap, 0, 0)
 
 	// Draw pin parts.
@@ -243,13 +243,13 @@ func MapPinsProjection(proj Projection, worldMap image.Image, pinParts []image.I
 	return m.(subImager).SubImage(image.Rect(minX, minY, maxX, maxY))
 }
 
-// MapPins is like MapPinsProjection with Merkator projection.
+// MapPins is like MapPinsProjection with Mercator projection.
 // The world map must be in the same projection.
 func MapPins(worldMap image.Image, pinParts []image.Image, coords []Coord, crop *CropOption) image.Image {
-	return MapPinsProjection(Merkator, worldMap, pinParts, coords, crop)
+	return MapPinsProjection(Mercator, worldMap, pinParts, coords, crop)
 }
 
 // Pins is like MapPins but uses the embedded world map and pin images.
 func Pins(coords []Coord, crop *CropOption) image.Image {
-	return MapPins(merkatorImg, DefaultPinParts, coords, crop)
+	return MapPins(mercatorImg, DefaultPinParts, coords, crop)
 }
