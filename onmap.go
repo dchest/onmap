@@ -54,13 +54,7 @@ func decodeImage(data []byte) image.Image {
 	return m
 }
 
-// StandardCrop is the standard crop defined as:
-//
-// Bound: 100
-// MinWidth: mapWidth/3
-// MinHeight: mapHeight/3
-// PreserveRatio: true
-//
+// StandardCrop is the standard crop.
 var StandardCrop *CropOption = &CropOption{
 	Bound:         100,
 	MinWidth:      640,
