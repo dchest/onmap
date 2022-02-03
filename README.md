@@ -65,3 +65,19 @@ Result (shown as webp, not png):
 Just one coordinate for San Francisco and using StandardCrop:
 
 ![World map with pins, cropped](example-2.webp)
+
+
+Other projections
+-----------------
+
+You can use a different projection by defining the following interface for it:
+
+```go
+// Projection is an interface for converting coordinates.
+type Projection interface {
+	// Convert converts coordinates into a point on a map.
+	Convert(coord Coord, mapWidth, mapHeight int) image.Point
+}
+```
+
+and using `MapPinsProjection` with your own world map in that projection.

@@ -23,12 +23,9 @@ var pinShadowData []byte
 var mapData []byte
 
 var (
-	mapImg    image.Image
-	pin       image.Image
-	pinShadow image.Image
-
-	mapWidth  int
-	mapHeight int
+	merkatorImg image.Image
+	pin         image.Image
+	pinShadow   image.Image
 )
 
 // DefaultPinParts are default pin images.
@@ -38,15 +35,21 @@ func init() {
 	pin = decodeImage(pinData)
 	pinShadow = decodeImage(pinShadowData)
 	DefaultPinParts = []image.Image{pinShadow, pin}
-	mapImg = decodeImage(mapData)
-	mapWidth = mapImg.Bounds().Max.X
-	mapHeight = mapImg.Bounds().Max.Y
+	merkatorImg = decodeImage(mapData)
 	StandardCrop = &CropOption{
 		Bound:         100,
-		MinWidth:      mapWidth / 3,
-		MinHeight:     mapHeight / 3,
+		MinWidth:      merkatorImg.Bounds().Max.X / 3,
+		MinHeight:     merkatorImg.Bounds().Max.Y / 3,
 		PreserveRatio: true,
 	}
+}
+
+func decodeImage(data []byte) image.Image {
+	m, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		panic(err.Error())
+	}
+	return m
 }
 
 // StandardCrop is the standard crop defined as:
@@ -67,54 +70,31 @@ type Coord struct {
 	Long float64
 }
 
-func (c Coord) latRad() float64 {
-	return c.Lat * math.Pi / 180
+// Projection is an interface for converting coordinates.
+type Projection interface {
+	// Convert converts coordinates into a point on a map.
+	Convert(coord Coord, mapWidth, mapHeight int) image.Point
 }
 
-func (c Coord) mercN() float64 {
-	return math.Log(math.Tan((math.Pi / 4) + (c.latRad() / 2)))
+var Merkator = merkatorProjection(0)
+
+// Merkator implements Projection interface for Merkator projection.
+type merkatorProjection int
+
+func (p merkatorProjection) latRad(lat float64) float64 {
+	return lat * math.Pi / 180
 }
 
-func (c Coord) XY(mapWidth, mapHeight float64) (x int, y int) {
-	fx := (c.Long + 180) * (mapWidth / 360)
-	fy := (mapHeight / 2) - (mapWidth * c.mercN() / (2 * math.Pi))
-	return int(math.Round(fx)), int(math.Round(fy))
+func (p merkatorProjection) n(lat float64) float64 {
+	return math.Log(math.Tan((math.Pi / 4) + (p.latRad(lat) / 2)))
 }
 
-func (c Coord) SortY() float64 {
-	return -(c.mercN() / (2 * math.Pi))
-}
-
-func (c Coord) SortX() float64 {
-	return c.Long + 180
-}
-
-type coordSlice []Coord
-
-func (c coordSlice) Len() int {
-	return len(c)
-}
-
-func (c coordSlice) Less(i, j int) bool {
-	if c[i].SortY() < c[j].SortY() {
-		return true
-	}
-	if c[i].SortX() < c[j].SortX() {
-		return true
-	}
-	return false
-}
-
-func (c coordSlice) Swap(i, j int) {
-	c[i], c[j] = c[j], c[i]
-}
-
-func decodeImage(data []byte) image.Image {
-	m, _, err := image.Decode(bytes.NewReader(data))
-	if err != nil {
-		panic(err.Error())
-	}
-	return m
+func (p merkatorProjection) Convert(c Coord, mapWidth, mapHeight int) image.Point {
+	mw := float64(mapWidth)
+	mh := float64(mapHeight)
+	fx := (c.Long + 180) * (mw / 360)
+	fy := (mh / 2) - (mw * p.n(c.Lat) / (2 * math.Pi))
+	return image.Point{int(math.Round(fx)), int(math.Round(fy))}
 }
 
 type subImager interface {
@@ -142,32 +122,45 @@ type CropOption struct {
 // MapPins returns an image with the given coordinates marked as pins on the given world map.
 // If crop is nil, doesn't crop the image.
 //
-// World map must be in Mercator projection.
+// World map must be in the given projection.
 //
 // Pin parts are arbitrary pin images, usually  a shadow of the pin and the pin itself.
 // Pin parts are drawn on top of each other from the bottom of the map to the top
 // by first drawing pinParts[n], then pinParts[n+1], etc.
 // The coordinate point is at the bottom center of each pin part image.
-func MapPins(worldMap image.Image, pinParts []image.Image, coords []Coord, crop *CropOption) image.Image {
-	// Copy and sort coordinates by longitude so that
+//
+func MapPinsProjection(proj Projection, worldMap image.Image, pinParts []image.Image, coords []Coord, crop *CropOption) image.Image {
+	mapWidth := worldMap.Bounds().Max.X
+	mapHeight := worldMap.Bounds().Max.Y
+
+	cs := make([]image.Point, len(coords))
+
+	// Convert coordinates to x, y.
+	for i, c := range coords {
+		cs[i] = proj.Convert(c, mapWidth, mapHeight)
+	}
+
+	// Sort coordinates by longitude so that
 	// lower pins are drawn on top of upper pins.
-	cs := make(coordSlice, len(coords))
-	copy(cs, coords)
-	sort.Sort(cs)
+	sort.Slice(cs, func(i, j int) bool {
+		if cs[i].Y < cs[j].Y {
+			return true
+		}
+		if cs[i].X < cs[j].X {
+			return true
+		}
+		return false
+	})
 
 	// Draw map.
-	dc := gg.NewContext(mapImg.Bounds().Max.X, mapImg.Bounds().Max.Y)
+	dc := gg.NewContext(merkatorImg.Bounds().Max.X, merkatorImg.Bounds().Max.Y)
 	dc.DrawImage(worldMap, 0, 0)
-
-	mw := float64(mapWidth)
-	mh := float64(mapHeight)
 
 	// Draw pin parts.
 	// Looping over pinParts first to better arrange shadows.
 	for _, pin := range pinParts {
 		for _, c := range cs {
-			x, y := c.XY(mw, mh)
-			dc.DrawImageAnchored(pin, x, y, 0.5, 1)
+			dc.DrawImageAnchored(pin, c.X, c.Y, 0.5, 1)
 		}
 	}
 
@@ -177,18 +170,17 @@ func MapPins(worldMap image.Image, pinParts []image.Image, coords []Coord, crop 
 	minX := mapWidth
 	minY := mapHeight
 	for _, c := range cs {
-		x, y := c.XY(mw, mh)
-		if x < minX {
-			minX = x
+		if c.X < minX {
+			minX = c.X
 		}
-		if x > maxX {
-			maxX = x
+		if c.X > maxX {
+			maxX = c.X
 		}
-		if y < minY {
-			minY = y
+		if c.Y < minY {
+			minY = c.Y
 		}
-		if y > maxY {
-			maxY = y
+		if c.Y > maxY {
+			maxY = c.Y
 		}
 	}
 	m := dc.Image()
@@ -251,7 +243,13 @@ func MapPins(worldMap image.Image, pinParts []image.Image, coords []Coord, crop 
 	return m.(subImager).SubImage(image.Rect(minX, minY, maxX, maxY))
 }
 
+// MapPins is like MapPinsProjection with Merkator projection.
+// The world map must be in the same projection.
+func MapPins(worldMap image.Image, pinParts []image.Image, coords []Coord, crop *CropOption) image.Image {
+	return MapPinsProjection(Merkator, worldMap, pinParts, coords, crop)
+}
+
 // Pins is like MapPins but uses the embedded world map and pin images.
 func Pins(coords []Coord, crop *CropOption) image.Image {
-	return MapPins(mapImg, DefaultPinParts, coords, crop)
+	return MapPins(merkatorImg, DefaultPinParts, coords, crop)
 }
