@@ -55,7 +55,7 @@ func decodeImage(data []byte) image.Image {
 }
 
 // StandardCrop is the standard crop.
-var StandardCrop *CropOption = &CropOption{
+var StandardCrop = &CropOption{
 	Bound:         100,
 	MinWidth:      640,
 	MinHeight:     543,
@@ -116,8 +116,8 @@ type CropOption struct {
 	PreserveRatio bool
 }
 
-// MapPins returns an image with the given coordinates marked as pins on the given world map.
-// If crop is nil, doesn't crop the image.
+// MapPinsProjection returns an image with the given coordinates marked as pins
+// on the given world map. If crop is nil, doesn't crop the image.
 //
 // World map must be in the given projection.
 //
@@ -125,7 +125,6 @@ type CropOption struct {
 // Pin parts are drawn on top of each other from the bottom of the map to the top
 // by first drawing pinParts[n], then pinParts[n+1], etc.
 // The coordinate point is at the bottom center of each pin part image.
-//
 func MapPinsProjection(proj Projection, worldMap image.Image, pinParts []image.Image, coords []Coord, crop *CropOption) image.Image {
 	mapWidth := worldMap.Bounds().Max.X
 	mapHeight := worldMap.Bounds().Max.Y
